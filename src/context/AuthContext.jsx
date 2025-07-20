@@ -1,21 +1,21 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-};
+}
 
-export const AuthProvider = ({ children }) => {
+export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing user session
+    // Check if user is logged in (simulate checking localStorage)
     const savedUser = localStorage.getItem('finora_user');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
@@ -23,9 +23,38 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = (userData) => {
+  const login = (email, password) => {
+    // Simulate login
+    const userData = {
+      id: 1,
+      name: 'John Doe',
+      email: email,
+      financialProfile: {
+        riskTolerance: 'moderate',
+        investmentGoals: ['growth', 'income'],
+        timeHorizon: '10-years'
+      }
+    };
     setUser(userData);
     localStorage.setItem('finora_user', JSON.stringify(userData));
+    return Promise.resolve(userData);
+  };
+
+  const register = (name, email, password) => {
+    // Simulate registration
+    const userData = {
+      id: Date.now(),
+      name: name,
+      email: email,
+      financialProfile: {
+        riskTolerance: 'moderate',
+        investmentGoals: [],
+        timeHorizon: '5-years'
+      }
+    };
+    setUser(userData);
+    localStorage.setItem('finora_user', JSON.stringify(userData));
+    return Promise.resolve(userData);
   };
 
   const logout = () => {
@@ -36,6 +65,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     login,
+    register,
     logout,
     loading
   };
@@ -45,4 +75,4 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
-};
+}

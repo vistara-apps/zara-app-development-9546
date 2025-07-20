@@ -1,213 +1,207 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, ExternalLink, TrendingUp, Zap, Star } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { useData } from '../context/DataContext';
-import { useAuth } from '../context/AuthContext';
-import { analyzeNewsImpact } from '../services/aiService';
-import PremiumModal from '../components/PremiumModal';
+import { 
+  Newspaper, 
+  Clock, 
+  Filter, 
+  Search, 
+  ExternalLink,
+  TrendingUp,
+  Globe
+} from 'lucide-react';
+import { fetchNews, fetchPersonalizedNews } from '../services/newsService';
+import { format } from 'date-fns';
 
-const News = () => {
-  const { news, portfolios } = useData();
-  const { user } = useAuth();
+function News() {
+  const [news, setNews] = useState([]);
+  const [filteredNews, setFilteredNews] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [newsAnalysis, setNewsAnalysis] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showPremiumModal, setShowPremiumModal] = useState(false);
-  const [isPremiumUser, setIsPremiumUser] = useState(user?.isPremium || false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
 
   const categories = [
-    { id: 'all', name: 'All News' },
-    { id: 'earnings', name: 'Earnings' },
-    { id: 'monetary-policy', name: 'Monetary Policy' },
-    { id: 'crypto', name: 'Cryptocurrency' },
-    { id: 'market-update', name: 'Market Updates' }
+    { id: 'all', name: 'All News', icon: Globe },
+    { id: 'technology', name: 'Technology', icon: TrendingUp },
+    { id: 'monetary-policy', name: 'Monetary Policy', icon: Newspaper },
+    { id: 'energy', name: 'Energy', icon: TrendingUp },
+    { id: 'healthcare', name: 'Healthcare', icon: TrendingUp },
+    { id: 'cryptocurrency', name: 'Crypto', icon: TrendingUp }
   ];
 
-  const filteredNews = selectedCategory === 'all' 
-    ? news 
-    : news.filter(item => item.category === selectedCategory);
+  useEffect(() => {
+    loadNews();
+  }, [selectedCategory]);
 
   useEffect(() => {
-    if (isPremiumUser && news.length > 0 && portfolios.length > 0) {
-      analyzeNews();
-    }
-  }, [isPremiumUser, news, portfolios]);
+    filterNews();
+  }, [news, searchTerm]);
 
-  const analyzeNews = async () => {
-    setLoading(true);
+  const loadNews = async () => {
     try {
-      const analysis = await analyzeNewsImpact(news.slice(0, 3), portfolios);
-      setNewsAnalysis(analysis);
+      setLoading(true);
+      const newsData = await fetchNews(selectedCategory);
+      setNews(newsData);
     } catch (error) {
-      console.error('Error analyzing news:', error);
+      console.error('Error loading news:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePremiumSuccess = () => {
-    setIsPremiumUser(true);
-    analyzeNews();
+  const filterNews = () => {
+    if (!searchTerm) {
+      setFilteredNews(news);
+      return;
+    }
+
+    const filtered = news.filter(article =>
+      article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      article.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredNews(filtered);
   };
 
   const getCategoryColor = (category) => {
     const colors = {
-      'earnings': 'bg-blue-100 text-blue-800',
-      'monetary-policy': 'bg-purple-100 text-purple-800',
-      'crypto': 'bg-orange-100 text-orange-800',
-      'market-update': 'bg-green-100 text-green-800'
+      'technology': 'bg-blue-100 text-blue-800',
+      'monetary-policy': 'bg-green-100 text-green-800',
+      'energy': 'bg-yellow-100 text-yellow-800',
+      'healthcare': 'bg-purple-100 text-purple-800',
+      'cryptocurrency': 'bg-orange-100 text-orange-800'
     };
     return colors[category] || 'bg-gray-100 text-gray-800';
   };
 
-  const formatCategory = (category) => {
-    return category.split('-').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Financial News</h1>
-          <p className="text-gray-600">Stay updated with the latest market news</p>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Financial News</h1>
+          <p className="text-gray-600">Stay informed with the latest market news and updates</p>
         </div>
-        {!isPremiumUser && (
-          <button
-            onClick={() => setShowPremiumModal(true)}
-            className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-white px-4 py-2 rounded-md font-medium flex items-center hover:from-yellow-500 hover:to-yellow-700 transition-all"
-          >
-            <Star className="h-5 w-5 mr-2" />
-            Get AI News Analysis
-          </button>
-        )}
-      </div>
 
-      {/* AI News Impact Analysis */}
-      {isPremiumUser && (
-        <div className="bg-white rounded-lg shadow-sm p-6 border">
-          <div className="flex items-center mb-4">
-            <Zap className="h-5 w-5 text-yellow-500 mr-2" />
-            <h3 className="text-lg font-semibold text-gray-900">
-              AI News Impact Analysis
-            </h3>
-          </div>
-          
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-              <span className="ml-2 text-gray-600">Analyzing news impact...</span>
+        {/* Search and Filter Controls */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center space-y-4 lg:space-y-0 lg:space-x-6">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search news..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
             </div>
-          ) : newsAnalysis ? (
-            <div className="prose prose-sm max-w-none">
-              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{newsAnalysis}</p>
+
+            {/* Category Filter */}
+            <div className="flex items-center space-x-2">
+              <Filter className="w-5 h-5 text-gray-400" />
+              <div className="flex flex-wrap gap-2">
+                {categories.map((category) => {
+                  const Icon = category.icon;
+                  return (
+                    <button
+                      key={category.id}
+                      onClick={() => setSelectedCategory(category.id)}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center ${
+                        selectedCategory === category.id
+                          ? 'bg-primary-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 mr-1" />
+                      {category.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* News Grid */}
+        <div className="space-y-6">
+          {filteredNews.length === 0 ? (
+            <div className="text-center py-12">
+              <Newspaper className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No news found</h3>
+              <p className="text-gray-600">
+                {searchTerm 
+                  ? "Try adjusting your search terms or filters" 
+                  : "No news available in this category at the moment"
+                }
+              </p>
             </div>
           ) : (
-            <p className="text-gray-500">No analysis available. Make sure you have portfolios set up.</p>
+            filteredNews.map((article) => (
+              <div key={article.id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                <div className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center mb-3">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getCategoryColor(article.category)}`}>
+                          {article.category.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                        <div className="ml-4 flex items-center text-sm text-gray-500">
+                          <Clock className="w-4 h-4 mr-1" />
+                          {format(article.timestamp, 'MMM d, yyyy h:mm a')}
+                        </div>
+                      </div>
+                      
+                      <h2 className="text-xl font-bold text-gray-900 mb-3 line-clamp-2">
+                        {article.title}
+                      </h2>
+                      
+                      <p className="text-gray-600 mb-4 line-clamp-3">
+                        {article.description}
+                      </p>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center mr-2">
+                            <span className="text-primary-600 text-xs font-bold">
+                              {article.source.charAt(0)}
+                            </span>
+                          </div>
+                          <span className="text-sm font-medium text-gray-700">
+                            {article.source}
+                          </span>
+                        </div>
+                        
+                        <button className="text-primary-600 hover:text-primary-700 font-medium text-sm flex items-center transition-colors">
+                          Read More
+                          <ExternalLink className="w-4 h-4 ml-1" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
           )}
         </div>
-      )}
 
-      {!isPremiumUser && (
-        <div className="bg-white rounded-lg shadow-sm p-6 border">
-          <div className="bg-gray-50 rounded-lg p-6 text-center">
-            <Zap className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-            <h4 className="text-lg font-semibold text-gray-900 mb-2">Premium Feature</h4>
-            <p className="text-gray-600 mb-4">
-              Get AI-powered analysis of how current news might impact your portfolio holdings.
-            </p>
-            <button
-              onClick={() => setShowPremiumModal(true)}
-              className="bg-primary-600 text-white px-6 py-2 rounded-md hover:bg-primary-700 transition-colors"
-            >
-              Unlock News Analysis
+        {/* Load More Button */}
+        {filteredNews.length > 0 && (
+          <div className="text-center mt-12">
+            <button className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+              Load More News
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Category Filter */}
-      <div className="bg-white rounded-lg shadow-sm p-4 border">
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              onClick={() => setSelectedCategory(category.id)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                selectedCategory === category.id
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {category.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* News List */}
-      <div className="space-y-4">
-        {filteredNews.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg border">
-            <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No News Available</h3>
-            <p className="text-gray-600">
-              {selectedCategory === 'all' 
-                ? 'No news items found.' 
-                : `No news found for ${categories.find(c => c.id === selectedCategory)?.name}.`}
-            </p>
-          </div>
-        ) : (
-          filteredNews.map((item) => (
-            <div key={item.id} className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex items-center gap-3">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(item.category)}`}>
-                    {formatCategory(item.category)}
-                  </span>
-                  <span className="text-sm text-gray-500">{item.source}</span>
-                </div>
-                <div className="flex items-center text-sm text-gray-500">
-                  <Clock className="h-4 w-4 mr-1" />
-                  {formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })}
-                </div>
-              </div>
-
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {item.title}
-              </h3>
-
-              <p className="text-gray-600 mb-4">
-                {item.description}
-              </p>
-
-              <div className="flex justify-between items-center">
-                <button className="text-primary-600 hover:text-primary-700 text-sm font-medium flex items-center">
-                  Read Full Article
-                  <ExternalLink className="h-4 w-4 ml-1" />
-                </button>
-                
-                {isPremiumUser && (
-                  <div className="flex items-center text-sm text-gray-500">
-                    <Zap className="h-4 w-4 mr-1 text-yellow-500" />
-                    Impact analyzed
-                  </div>
-                )}
-              </div>
-            </div>
-          ))
         )}
       </div>
-
-      <PremiumModal
-        isOpen={showPremiumModal}
-        onClose={() => setShowPremiumModal(false)}
-        onSuccess={handlePremiumSuccess}
-      />
     </div>
   );
-};
+}
 
 export default News;
